@@ -13,15 +13,17 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 				base->datatemp |= base->sda_sta();
 			}
 			if(8 == base->databitcount){//读取完设备地址
+
+
 				base->rec_devaddr = base->datatemp>>1;
- 
+ #ifndef debug
 				if(base->devaddr != base->rec_devaddr){
 					// 若不是本设备地址
 					base->i2c_sta = IDLE_STOP;
 					base->databitcount = 0;
 					base->databittranscount = 0;
 				}
- 
+#endif 
 				base->RW_HL = (base->datatemp&0x01)?READ:WRITE;
 				base->sclfall_sta = 1;
 			}
@@ -76,7 +78,6 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 		}
 		break;
 		// case DATA_SEND://读需要再下降沿准备数据
- 
 	}
 }
 void scl_falling_interhandle(BdeviceI2C *base)
@@ -113,6 +114,7 @@ void sda_rising_interhandle(BdeviceI2C *base)
 	if(base->scl_sta() == 1)
 	{
 		base->i2c_sta = IDLE_STOP;
+
 		base->databitcount = 0;
 		base->databittranscount = 0;
 	}
@@ -128,10 +130,10 @@ void i2cslave_init(BdeviceI2C *base,
 	uint8_t regaddr_width,//从设备的寄存器宽度
 	uint8_t devaddr)
 {
-	base->scl_sta = SCL_STA ;
-	base->sda_sta = SDA_STA ;
-	base->sda_in = SDA_IN	;
-	base->sda_pp = SDA_OD	;
+	base->scl_sta = SCL_STA;
+	base->sda_sta = SDA_STA;
+	base->sda_in = SDA_IN;
+	base->sda_pp = SDA_OD;
 	base->sda_l = SDA_L;
 	base->sda_h = SDA_H;
  
@@ -142,6 +144,7 @@ void i2cslave_init(BdeviceI2C *base,
 	
 	base->databittranscount = 0;
 	base->devaddr = devaddr;
+
 }
  
 /**********************************************************************************************************
@@ -185,4 +188,14 @@ int i2cslave_getdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t *data){
 	}
 	*data = 0;
 	return 1;	
+}
+/**********************************************************************************************************
+*	函 数 名: int i2cslave_isbusy(BdeviceI2C *base){
+*	功能说明: 判断从i2c是否处于主i2c操作中
+*	传    参: 
+*	返 回 值: 0:有主设备操作，1:没有主设备操作
+*   说    明: 
+*********************************************************************************************************/
+int i2cslave_isbusy(BdeviceI2C *base){
+	return (base->i2c_sta != IDLE_STOP)?0:1;
 }

@@ -40,6 +40,16 @@ typedef struct BdeviceI2C
 	uint16_t slave_reg_addr[SLAVE_REG_NUM];
 	uint8_t slave_reg_data[SLAVE_REG_NUM];
 	uint8_t slave_reg_index;
+
+	// uint8_t scl_rising_intercount;
+	// uint8_t scl_falling_intercount;
+	// uint8_t sda_falling_intercount;
+	// uint8_t sda_rising_intercount;
+	// uint8_t start_count;
+	// uint8_t stop_count;
+	// uint8_t dev_count;
+	// uint8_t regaddr_count;
+	// I2C_SLAVESTA stat[10]
 }BdeviceI2C;
 
 void scl_rising_interhandle(BdeviceI2C *base);
@@ -59,4 +69,6 @@ void i2cslave_init(BdeviceI2C *base,
 
 int i2cslave_setdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t data);
 int i2cslave_getdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t *data);
+int i2cslave_isbusy(BdeviceI2C *base);
+// #define debug
 #endif
