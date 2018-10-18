@@ -6,20 +6,21 @@ typedef enum {DATA_SEND,IDLE_STOP,DEVADDR,REGADDR,REGADDRWAIT,DEVADDR_ACK,DATA}I
 typedef enum {READ = 1,WRITE = 0}RW_STA;
 typedef uint32_t (*SCL_STA)(void);
 typedef uint32_t (*SDA_STA)(void);
-typedef void (*SDA_IN)(void);
-typedef void (*SDA_OD)(void);
-typedef void (*SDA_L)(void);
-typedef void (*SDA_H)(void);
+typedef void (*BdeviceI2C_VOIDFUNCVOID)(void);
+typedef uint32_t (*BdeviceI2C_U32FUNCVOID)(void);
+// typedef void (*SDA_OD)(void);
+// typedef void (*SDA_L)(void);
+// typedef void (*SDA_H)(void);
 #define SLAVE_REG_NUM 10//作为从机使用时，从机的内部寄存器个数
 
 typedef struct BdeviceI2C
 {
-	SCL_STA scl_sta;
-	SDA_STA sda_sta;
-	SDA_IN  sda_in;
-	SDA_OD  sda_pp;
-	SDA_L   sda_l;
-	SDA_H   sda_h;
+	BdeviceI2C_U32FUNCVOID scl_sta;
+	BdeviceI2C_U32FUNCVOID sda_sta;
+	BdeviceI2C_VOIDFUNCVOID  sda_in;
+	BdeviceI2C_VOIDFUNCVOID  sda_pp;
+	BdeviceI2C_VOIDFUNCVOID   sda_l;
+	BdeviceI2C_VOIDFUNCVOID   sda_h;
 	I2C_SLAVESTA i2c_sta;
 	uint8_t sclfall_sta;
 
@@ -31,7 +32,7 @@ typedef struct BdeviceI2C
 
 	uint8_t databitcount;//
 
-	uint8_t databittranscount;//
+	uint8_t databittranscount;//发出bit计数器
 
 	uint8_t datatemp;
 
@@ -42,15 +43,11 @@ typedef struct BdeviceI2C
 	uint8_t slave_reg_index;
 
 	uint8_t read_reg_index;//读取数据时用来计数第几个数据
-	// uint8_t scl_rising_intercount;
-	// uint8_t scl_falling_intercount;
-	// uint8_t sda_falling_intercount;
-	// uint8_t sda_rising_intercount;
-	// uint8_t start_count;
-	// uint8_t stop_count;
-	// uint8_t dev_count;
-	// uint8_t regaddr_count;
-	// I2C_SLAVESTA stat[10]
+
+	BdeviceI2C_VOIDFUNCVOID check_senddatafptr[SLAVE_REG_NUM];//存放发送地址，用来检查改地址是否发送过
+	uint16_t check_senddataregaddr[SLAVE_REG_NUM];
+	int16_t senddatafptrRegindex;
+	int16_t check_senddataaindex;//用于内部指示数据index
 }BdeviceI2C;
 
 void scl_rising_interhandle(BdeviceI2C *base);
@@ -69,8 +66,10 @@ void i2cslave_init(BdeviceI2C *base,
 	uint8_t regaddr_width,//从设备的寄存器宽度
 	uint8_t devaddr);//从设备的设备地址
 
-int i2cslave_setdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t data);
-int i2cslave_getdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t *data);
-int i2cslave_isbusy(BdeviceI2C *base);
+int32_t i2cslave_setdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t data);
+int32_t i2cslave_getdata(BdeviceI2C *base,uint16_t reg_addr,uint8_t *data);
+int32_t i2cslave_isbusy(BdeviceI2C *base);
 
+int32_t i2cslave_issended_reg(BdeviceI2C *base,uint16_t reg_addr,void(*fptr)(void));
+int32_t i2cslave_issended_scan(BdeviceI2C *base);
 #endif
