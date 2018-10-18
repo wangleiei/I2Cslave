@@ -1,6 +1,8 @@
 #include "I2C_SLAVE.h"
-static void recdata_deal(BdeviceI2C *base);
-#define ACK base->sda_pp();base->sda_l();base->sda_in();	
+#define I2CSLAVEACK base->sda_pp();base->sda_l();base->sda_in();
+#define I2CSLAVEDEFAULT 		base->databitcount = 0;\
+								base->databittranscount = 0;\
+								base->datatemp = 0;
 uint8_t FLAG_SEND = 0;
 uint8_t FLAG_STOP = 0;
 void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
@@ -17,20 +19,21 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 
 
 				base->rec_devaddr = base->datatemp>>1;
- #ifndef debug
+
 				if(base->devaddr != base->rec_devaddr){
 					// 若不是本设备地址
 					base->i2c_sta = IDLE_STOP;
 					base->databitcount = 0;
 					base->databittranscount = 0;
 				}
-#endif 
+
 				base->RW_HL = (base->datatemp&0x01)?READ:WRITE;
 				base->sclfall_sta = 1;//第8 SCL上升沿，ACK上升沿之前的沿,就是RW bit位所在沿
 			}
 			if(9 == base->databitcount){//回传ack，sda已经在scl下降沿拉低
 				if(base->RW_HL == READ){
 					FLAG_SEND = 1;
+					base->read_reg_index = 0;//寄存器偏移地址设置为0
 					base->i2c_sta = DATA_SEND;
 				}else{
 					base->sda_in();//
@@ -50,7 +53,6 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 						base->sclfall_sta = 1;//ack应该在这个沿之后的下降沿改变
 					}
 				}else{
-					
 					if(9 == base->databitcount){
 						base->masreg_addr = base->datatemp;
 					}else{// 18
@@ -84,31 +86,42 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 			}
 		}
 		break;
-		// case DATA_SEND://读需要在下降沿准备数据
+		case DATA_SEND://用来判断主机是否想要继续发送数据
+			if(0 == base->databittranscount){
+				if(base->sda_sta()){//只在从机发送8bit数据后判断
+					// 如果是高电平，表示主机将发送STOP 或 START信号
+					I2CSLAVEDEFAULT;
+					base->i2c_sta = IDLE_STOP;
+				}else{
+					// 说明主机仍会发送数据
+				}
+			}
 	}
 }
 void scl_falling_interhandle(BdeviceI2C *base)
 {
+
 	if(DATA_SEND == base->i2c_sta){//发送完数据后如何得到STOP信号??? 方法1：立即变成输入中断模式
-		if(base->databittranscount %9 == 0){//0 9 ACK 下降沿
+		base->databittranscount ++;	
+
+		if(1 == base->databittranscount){//第一次得到数据
 			base->sda_pp();//主机读从机
-			i2cslave_getdata(base,base->masreg_addr+(base->databittranscount/9),(uint8_t*)&(base->datatemp));
-		}// 0 1 2 3 4 5 6 7 8 9 
-		// 0：ack后的下降沿
-		if((base->databittranscount %9) != 8){
+			i2cslave_getdata(base,base->masreg_addr+base->read_reg_index,(uint8_t*)&(base->datatemp));
+			base->read_reg_index++;//为了连续读数据时寄存器地址偏移而设计
+		}
+		if(8 >= base->databittranscount){//  
 			((base->datatemp&0x80)?base->sda_h:base->sda_l)();//在scl为低时，输出数据
 			base->datatemp <<= 1;
 		}else{
-			// 8
-			base->sclfall_sta = 1;//第九下降沿，ACK上升沿之前的沿，
-			// 这里可能会继续输出数据，也可能得到stop信号
-		}
-		base->databittranscount ++;		
+			base->databittranscount = 0;
+			// base->sclfall_sta = 1;//
+			// 这里可能会得到ACK（sda为低）信号，也可能得到NACK（sda为高）信号,//都要SCL上升沿后判断SDA
+			base->sda_in();
+		}	
 	}
-	if(1 == base->sclfall_sta)
-	{
+	if(1 == base->sclfall_sta){
 		base->sclfall_sta = 0;
-		ACK;
+		I2CSLAVEACK;//
 	}
 }
 void sda_falling_interhandle(BdeviceI2C *base)
@@ -117,9 +130,7 @@ void sda_falling_interhandle(BdeviceI2C *base)
 	if(base->scl_sta() == 1)//
 	{
 		base->i2c_sta = DEVADDR;
-		base->databitcount = 0;
-		base->databittranscount = 0;
-		base->datatemp = 0;
+		I2CSLAVEDEFAULT;
 		//收到START_DEVADDR信号
 	}
 }
@@ -129,9 +140,8 @@ void sda_rising_interhandle(BdeviceI2C *base)
 	{
 		base->i2c_sta = IDLE_STOP;
 
-		base->databitcount = 0;
-		base->databittranscount = 0;
-		base->datatemp = 0;
+		I2CSLAVEDEFAULT;
+		base->read_reg_index = 0;
 		base->sda_in();
 
 		FLAG_STOP = 1;
@@ -163,6 +173,7 @@ void i2cslave_init(BdeviceI2C *base,
 	base->databittranscount = 0;
 	base->devaddr = devaddr;
 
+	base->read_reg_index = 0;
 }
  
 /**********************************************************************************************************
