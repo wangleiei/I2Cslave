@@ -57,7 +57,8 @@ void scl_rising_interhandle(BdeviceI2C *base);
 void scl_falling_interhandle(BdeviceI2C *base);
 void sda_falling_interhandle(BdeviceI2C *base);
 void sda_rising_interhandle(BdeviceI2C *base);
-
+// @DateTime:    2018-10-18 15:53:09
+// @Author wll 实测能处理800hz速率的i2c stm8l 内部16MHZ晶振频率
 void i2cslave_init(BdeviceI2C *base,
 	uint32_t (*SCL_STA)(void),//读取电平，高电平返回1,低电平返回0
 	uint32_t (*SDA_STA)(void),//读取电平，高电平返回1,低电平返回0
