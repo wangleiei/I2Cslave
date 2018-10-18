@@ -1,7 +1,8 @@
 #include "I2C_SLAVE.h"
 static void recdata_deal(BdeviceI2C *base);
 #define ACK base->sda_pp();base->sda_l();base->sda_in();	
- 
+uint8_t FLAG_SEND = 0;
+uint8_t FLAG_STOP = 0;
 void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 {
 	switch(base->i2c_sta)
@@ -25,11 +26,11 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 				}
 #endif 
 				base->RW_HL = (base->datatemp&0x01)?READ:WRITE;
-				base->sclfall_sta = 1;
+				base->sclfall_sta = 1;//第8 SCL上升沿，ACK上升沿之前的沿,就是RW bit位所在沿
 			}
-			if(9 == base->databitcount){//回传ack
+			if(9 == base->databitcount){//回传ack，sda已经在scl下降沿拉低
 				if(base->RW_HL == READ){
-					base->sda_pp();//主机读从机
+					FLAG_SEND = 1;
 					base->i2c_sta = DATA_SEND;
 				}else{
 					base->sda_in();//
@@ -88,15 +89,21 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 }
 void scl_falling_interhandle(BdeviceI2C *base)
 {
- 
-	if(DATA_SEND == base->i2c_sta){
-		if(base->databittranscount %9 == 0){
+	if(DATA_SEND == base->i2c_sta){//发送完数据后如何得到STOP信号??? 方法1：立即变成输入中断模式
+		if(base->databittranscount %9 == 0){//0 9 ACK 下降沿
+			base->sda_pp();//主机读从机
 			i2cslave_getdata(base,base->masreg_addr+(base->databittranscount/9),(uint8_t*)&(base->datatemp));
+		}// 0 1 2 3 4 5 6 7 8 9 
+		// 0：ack后的下降沿
+		if((base->databittranscount %9) != 8){
+			((base->datatemp&0x80)?base->sda_h:base->sda_l)();//在scl为低时，输出数据
+			base->datatemp <<= 1;
+		}else{
+			// 8
+			base->sclfall_sta = 1;//第九下降沿，ACK上升沿之前的沿，
+			// 这里可能会继续输出数据，也可能得到stop信号
 		}
-		((base->datatemp&0x80)?base->sda_h:base->sda_l)();
-		base->datatemp <<= 1;
- 
-		base->databittranscount ++;
+		base->databittranscount ++;		
 	}
 	if(1 == base->sclfall_sta)
 	{
@@ -111,6 +118,8 @@ void sda_falling_interhandle(BdeviceI2C *base)
 	{
 		base->i2c_sta = DEVADDR;
 		base->databitcount = 0;
+		base->databittranscount = 0;
+		base->datatemp = 0;
 		//收到START_DEVADDR信号
 	}
 }
@@ -122,7 +131,10 @@ void sda_rising_interhandle(BdeviceI2C *base)
 
 		base->databitcount = 0;
 		base->databittranscount = 0;
+		base->datatemp = 0;
 		base->sda_in();
+
+		FLAG_STOP = 1;
 	}
 }
  
