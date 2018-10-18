@@ -28,7 +28,13 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 				base->sclfall_sta = 1;
 			}
 			if(9 == base->databitcount){//回传ack
-				base->i2c_sta = (base->RW_HL == READ)?DATA_SEND:REGADDR;
+				if(base->RW_HL == READ){
+					base->sda_pp();//主机读从机
+					base->i2c_sta = DATA_SEND;
+				}else{
+					base->sda_in();//
+					base->i2c_sta = REGADDR;
+				}
 				base->databittranscount = 0;
 				base->databitcount = 0;
 			}
@@ -77,7 +83,7 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 			}
 		}
 		break;
-		// case DATA_SEND://读需要再下降沿准备数据
+		// case DATA_SEND://读需要在下降沿准备数据
 	}
 }
 void scl_falling_interhandle(BdeviceI2C *base)
@@ -103,7 +109,6 @@ void sda_falling_interhandle(BdeviceI2C *base)
 	// if((base->i2c_sta == IDLE_STOP) && (base->scl_sta() == 1))
 	if(base->scl_sta() == 1)//
 	{
- 
 		base->i2c_sta = DEVADDR;
 		base->databitcount = 0;
 		//收到START_DEVADDR信号
@@ -117,6 +122,7 @@ void sda_rising_interhandle(BdeviceI2C *base)
 
 		base->databitcount = 0;
 		base->databittranscount = 0;
+		base->sda_in();
 	}
 }
  
