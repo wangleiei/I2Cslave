@@ -104,6 +104,7 @@ void scl_falling_interhandle(BdeviceI2C *base)
 		if(1 == base->databittranscount){//第一次得到数据
 			base->sda_pp();//主机读从机
 			base->check_senddataaindex =i2cslave_getdata(base,base->masreg_addr+base->read_reg_index,(uint8_t*)&(base->datatemp));
+			base->flag_check_senddata = 0;
 
 			base->read_reg_index++;//为了连续读数据时寄存器地址偏移而设计
 		}
@@ -112,6 +113,7 @@ void scl_falling_interhandle(BdeviceI2C *base)
 			base->datatemp <<= 1;
 		}else{
 			base->databittranscount = 0;
+			base->flag_check_senddata = 1;
 			// base->sclfall_sta = 1;//
 			// 这里可能会得到ACK（sda为低）信号，也可能得到NACK（sda为高）信号,//都要SCL上升沿后判断SDA
 			base->sda_in();
@@ -178,6 +180,7 @@ void i2cslave_init(BdeviceI2C *base,
 		base->check_senddataregaddr[temp] = 0;			 
 	}
 	base->check_senddataaindex = -1;
+	base->flag_check_senddata = 0;
 	base->senddatafptrRegindex = 0;
 }
  
@@ -250,7 +253,7 @@ int32_t i2cslave_issended_reg(BdeviceI2C *base,uint16_t reg_addr,void(*fptr)(voi
 int32_t i2cslave_issended_scan(BdeviceI2C *base){
 	uint8_t temp;
 	uint16_t destaddr = 0;
-	if(- 1 ==  base->check_senddataaindex )return -1;
+	if((- 1 ==  base->check_senddataaindex) || (base->flag_check_senddata != 0))return -1;
 	destaddr = base->slave_reg_addr[base->check_senddataaindex];
 	for(temp = 0;temp < SLAVE_REG_NUM;temp ++){
 		// 寻找

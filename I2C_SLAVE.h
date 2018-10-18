@@ -48,6 +48,7 @@ typedef struct BdeviceI2C
 	uint16_t check_senddataregaddr[SLAVE_REG_NUM];
 	int16_t senddatafptrRegindex;
 	int16_t check_senddataaindex;//用于内部指示数据index
+	uint8_t flag_check_senddata;
 }BdeviceI2C;
 
 void scl_rising_interhandle(BdeviceI2C *base);
