@@ -11,7 +11,7 @@ typedef uint32_t (*BdeviceI2C_U32FUNCVOID)(void);
 // typedef void (*SDA_OD)(void);
 // typedef void (*SDA_L)(void);
 // typedef void (*SDA_H)(void);
-#define SLAVE_REG_NUM 10//作为从机使用时，从机的内部寄存器个数
+#define SLAVE_REG_NUM 20 //作为从机使用时，从机的内部寄存器个数
 
 typedef struct BdeviceI2C
 {
@@ -49,6 +49,11 @@ typedef struct BdeviceI2C
 	int16_t senddatafptrRegindex;
 	int16_t check_senddataaindex;//用于内部指示数据index
 	uint8_t flag_check_senddata;
+
+	uint16_t scl_l_count;
+	uint16_t scl_h_count;
+	uint16_t sda_l_count;
+	uint16_t sda_h_count;
 }BdeviceI2C;
 
 void scl_rising_interhandle(BdeviceI2C *base);

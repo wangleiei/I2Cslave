@@ -3,8 +3,10 @@
 #define I2CSLAVEDEFAULT 		base->databitcount = 0;\
 								base->databittranscount = 0;\
 								base->datatemp = 0;
+extern BdeviceI2C bdevicei2c_p1_0x45;                                                                
 void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 {
+	base->scl_h_count++;
 	switch(base->i2c_sta)
 	{
 		case DEVADDR:
@@ -18,7 +20,10 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 
 				base->rec_devaddr = base->datatemp>>1;
 
-				if(base->devaddr != base->rec_devaddr){
+				// if(base->devaddr != base->rec_devaddr){
+				// @DateTime:    2018-10-31 10:22:32
+				// @Author wll 
+				if((base->devaddr != 0x44) && (0x45 != base->devaddr)){
 					// 若不是本设备地址
 					base->i2c_sta = IDLE_STOP;
 					base->databitcount = 0;
@@ -97,16 +102,21 @@ void scl_rising_interhandle(BdeviceI2C *base)//SCL上升沿
 }
 void scl_falling_interhandle(BdeviceI2C *base)
 {
-
+	base->scl_l_count++;
 	if(DATA_SEND == base->i2c_sta){//发送完数据后如何得到STOP信号??? 方法1：立即变成输入中断模式
 		base->databittranscount ++;	
 
 		if(1 == base->databittranscount){//第一次得到数据
 			base->sda_pp();//主机读从机
-			base->check_senddataaindex =i2cslave_getdata(base,base->masreg_addr+base->read_reg_index,(uint8_t*)&(base->datatemp));
+			if(0x45 != base->rec_devaddr){
+				// 是接收到的地址
+				base->check_senddataaindex = i2cslave_getdata(base,base->masreg_addr+base->read_reg_index,(uint8_t*)&(base->datatemp));
+			}else{
+				base->check_senddataaindex = i2cslave_getdata(&bdevicei2c_p1_0x45,base->masreg_addr+base->read_reg_index,(uint8_t*)&(base->datatemp));
+			}
 			base->flag_check_senddata = 0;
 
-			base->read_reg_index++;//为了连续读数据时寄存器地址偏移而设计
+			base->read_reg_index ++;//为了连续读数据时寄存器地址偏移而设计
 		}
 		if(8 >= base->databittranscount){//  
 			((base->datatemp&0x80)?base->sda_h:base->sda_l)();//在scl为低时，输出数据
@@ -126,6 +136,7 @@ void scl_falling_interhandle(BdeviceI2C *base)
 }
 void sda_falling_interhandle(BdeviceI2C *base)
 {
+	base->sda_l_count++;
 	// if((base->i2c_sta == IDLE_STOP) && (base->scl_sta() == 1))
 	if(base->scl_sta() == 1)//
 	{
@@ -136,6 +147,8 @@ void sda_falling_interhandle(BdeviceI2C *base)
 }
 void sda_rising_interhandle(BdeviceI2C *base)
 {
+	base->sda_h_count++;
+	
 	if(base->scl_sta() == 1)
 	{
 		base->i2c_sta = IDLE_STOP;
@@ -182,6 +195,10 @@ void i2cslave_init(BdeviceI2C *base,
 	base->check_senddataaindex = -1;
 	base->flag_check_senddata = 0;
 	base->senddatafptrRegindex = 0;
+	base->scl_l_count = 0;
+	base->scl_h_count = 0;
+	base->sda_l_count = 0;
+	base->sda_h_count = 0;
 }
  
 /**********************************************************************************************************
